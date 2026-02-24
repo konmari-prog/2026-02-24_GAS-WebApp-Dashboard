@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サムネイル - GAS WebApp ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #f0f0f0;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .thumbnail {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  }
+
+  /* 背景の装飾パーツ */
+  .bg-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.12;
+  }
+  .bg-circle-1 {
+    width: 500px; height: 500px;
+    background: #fff;
+    top: -120px; right: -80px;
+  }
+  .bg-circle-2 {
+    width: 350px; height: 350px;
+    background: #fff;
+    bottom: -100px; left: -60px;
+  }
+  .bg-circle-3 {
+    width: 200px; height: 200px;
+    background: #ffd700;
+    top: 300px; right: 200px;
+  }
+
+  /* グリッドドット */
+  .grid-dots {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* メインコンテンツ */
+  .content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    padding: 48px 56px;
+  }
+
+  /* 左側：テキスト */
+  .text-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 40px;
+  }
+
+  .event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 30px;
+    padding: 8px 20px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    width: fit-content;
+    margin-bottom: 24px;
+  }
+
+  .event-badge .material-icons {
+    font-size: 18px;
+  }
+
+  .main-title {
+    color: #fff;
+    font-weight: 900;
+    line-height: 1.3;
+    margin-bottom: 16px;
+  }
+
+  .main-title .line1 {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 8px;
+    opacity: 0.9;
+  }
+
+  .main-title .line2 {
+    font-size: 40px;
+    display: block;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.2);
+  }
+
+  .main-title .highlight {
+    background: linear-gradient(transparent 60%, rgba(255, 213, 0, 0.45) 60%);
+    padding: 0 4px;
+  }
+
+  .sub-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.9);
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .info-row .material-icons {
+    font-size: 20px;
+    opacity: 0.8;
+  }
+
+  .free-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #ffd700;
+    color: #4a2d8a;
+    font-weight: 900;
+    font-size: 14px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-left: 8px;
+  }
+
+  /* 右側：ダッシュボード風のビジュアル */
+  .visual-area {
+    width: 460px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dashboard-mock {
+    width: 420px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+    transform: rotate(-2deg);
+  }
+
+  .mock-header {
+    background: #f8f9fa;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .mock-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .mock-dot.red { background: #ff5f57; }
+  .mock-dot.yellow { background: #febc2e; }
+  .mock-dot.green { background: #28c840; }
+
+  .mock-url {
+    background: #fff;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: #888;
+    flex: 1;
+    text-align: center;
+  }
+
+  .mock-body {
+    padding: 20px;
+  }
+
+  .mock-title-bar {
+    font-size: 13px;
+    font-weight: 900;
+    color: #333;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mock-title-bar .material-icons {
+    color: #667eea;
+    font-size: 18px;
+  }
+
+  /* ミニチャート：棒グラフ */
+  .mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 100px;
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+
+  .chart-bar {
+    flex: 1;
+    border-radius: 6px 6px 0 0;
+    position: relative;
+  }
+  .chart-bar::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: #999;
+    white-space: nowrap;
+  }
+
+  .bar-1 { height: 60%; background: linear-gradient(180deg, #667eea, #764ba2); }
+  .bar-2 { height: 80%; background: linear-gradient(180deg, #667eea, #764ba2); }
+  .bar-3 { height: 45%; background: linear-gradient(180deg, #667eea, #764ba2); }
+  .bar-4 { height: 95%; background: linear-gradient(180deg, #667eea, #764ba2); }
+  .bar-5 { height: 70%; background: linear-gradient(180deg, #667eea, #764ba2); }
+  .bar-6 { height: 85%; background: linear-gradient(180deg, #ffd700, #f5a623); }
+
+  /* ミニ円グラフ風 */
+  .mini-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .stat-card {
+    flex: 1;
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 900;
+    color: #667eea;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  .donut-wrap {
+    width: 50px; height: 50px;
+    margin: 0 auto 6px;
+    position: relative;
+  }
+
+  .donut {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: conic-gradient(
+      #667eea 0% 42%,
+      #f093fb 42% 72%,
+      #ffd700 72% 88%,
+      #e0e0e0 88% 100%
+    );
+    position: relative;
+  }
+  .donut::after {
+    content: '';
+    position: absolute;
+    top: 12px; left: 12px;
+    width: 26px; height: 26px;
+    background: #f8f9fa;
+    border-radius: 50%;
+  }
+
+  /* 発表者ラベル */
+  .speaker-label {
+    position: absolute;
+    bottom: 28px;
+    left: 56px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 3;
+  }
+
+  .speaker-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffd700, #f5a623);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a2d8a;
+    font-weight: 900;
+    font-size: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+
+  .speaker-name {
+    color: rgba(255,255,255,0.9);
+    font-size: 14px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="thumbnail">
+  <!-- 背景装飾 -->
+  <div class="bg-circle bg-circle-1"></div>
+  <div class="bg-circle bg-circle-2"></div>
+  <div class="bg-circle bg-circle-3"></div>
+  <div class="grid-dots"></div>
+
+  <div class="content">
+    <!-- 左側：テキスト -->
+    <div class="text-area">
+      <div class="event-badge">
+        <span class="material-icons">event</span>
+        けいたろうさん添削会
+      </div>
+
+      <h1 class="main-title">
+        <span class="line1">スプレッドシートの集計、まだ手作業？</span>
+        <span class="line2"><span class="highlight">GAS WebApp</span>で<br>アンケート集計<br><span class="highlight">ダッシュボード</span>を作った話</span>
+      </h1>
+
+      <div class="sub-info">
+        <div class="info-row">
+          <span class="material-icons">schedule</span>
+          2/24（火）12:00〜13:00
+          <span class="free-badge">参加無料</span>
+        </div>
+        <div class="info-row">
+          <span class="material-icons">videocam</span>
+          オンライン開催（Zoom）
+        </div>
+      </div>
+    </div>
+
+    <!-- 右側：ダッシュボード風ビジュアル -->
+    <div class="visual-area">
+      <div class="dashboard-mock">
+        <div class="mock-header">
+          <div class="mock-dot red"></div>
+          <div class="mock-dot yellow"></div>
+          <div class="mock-dot green"></div>
+          <div class="mock-url">script.google.com/dashboard</div>
+        </div>
+        <div class="mock-body">
+          <div class="mock-title-bar">
+            <span class="material-icons">bar_chart</span>
+            アンケート集計ダッシュボード
+          </div>
+          <div class="mini-chart">
+            <div class="chart-bar bar-1" data-label="第1回"></div>
+            <div class="chart-bar bar-2" data-label="第2回"></div>
+            <div class="chart-bar bar-3" data-label="第3回"></div>
+            <div class="chart-bar bar-4" data-label="第4回"></div>
+            <div class="chart-bar bar-5" data-label="第5回"></div>
+            <div class="chart-bar bar-6" data-label="第6回"></div>
+          </div>
+          <div class="mini-stats">
+            <div class="stat-card">
+              <div class="stat-value">4.7</div>
+              <div class="stat-label">満足度</div>
+            </div>
+            <div class="stat-card">
+              <div class="donut-wrap">
+                <div class="donut"></div>
+              </div>
+              <div class="stat-label">理解度分布</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">156</div>
+              <div class="stat-label">回答数</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 発表者 -->
+  <div class="speaker-label">
+    <div class="speaker-icon">K</div>
+    <div class="speaker-name">発表：コンマリ（@konmari_tweet）</div>
+  </div>
+</div>
+
+</body>
+</html>

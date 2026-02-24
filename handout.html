@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GAS WebAppでアンケート集計ダッシュボードを作った話 | 配布資料</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: "#80D4E9",
+        "primary-vivid": "#01A8D3",
+        secondary: "#F5DFA0",
+        "secondary-vivid": "#EEB730",
+        accent: "#EEB730",
+        lavender: "#B0E0EE",
+        "background-light": "#F8F9FA",
+        "background-dark": "#1A1A1A",
+      },
+      fontFamily: {
+        display: ["Montserrat", "Noto Sans JP", "sans-serif"],
+        sans: ["Noto Sans JP", "sans-serif"],
+      },
+    },
+  },
+};
+</script>
+<style>
+body { font-family: 'Noto Sans JP', sans-serif; }
+.hero-gradient { background: #01A8D3; }
+.copy-btn { transition: all 0.2s; }
+.copy-btn:hover { transform: scale(1.05); }
+.copy-btn.copied { background: #10B981 !important; }
+.prompt-box {
+  background: #1e1e1e;
+  border-radius: 0.75rem;
+  position: relative;
+}
+.prompt-box pre {
+  color: #e2e8f0;
+  font-family: 'Fira Code', 'Noto Sans JP', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  padding: 1.25rem;
+  padding-right: 4rem;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.step-number {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #01A8D3;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+.check-card {
+  background: #E0F7FA;
+  border: 2px solid #80D4E9;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+.arch-card {
+  background: white;
+  border: 2px solid #80D4E9;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  flex: 1;
+}
+.arch-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #01A8D3;
+  font-size: 2rem;
+  flex-shrink: 0;
+  padding: 0 0.25rem;
+}
+.plain-box {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #475569;
+}
+.plain-box strong { color: #01A8D3; }
+</style>
+</head>
+<body class="bg-background-light text-slate-800">
+
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+  <div class="flex items-center space-x-2">
+    <span class="material-icons-outlined text-primary-vivid text-2xl">dashboard</span>
+    <span class="font-bold text-lg tracking-tight">GAS WebApp 配布資料</span>
+  </div>
+  <nav class="flex items-center space-x-4 text-sm font-medium">
+    <a class="hover:text-primary-vivid transition-colors hidden sm:block" href="#overview">概要</a>
+    <a class="hover:text-primary-vivid transition-colors hidden sm:block" href="#part-1">構成図</a>
+    <a class="hover:text-primary-vivid transition-colors hidden sm:block" href="#part-2">doGet</a>
+    <a class="hover:text-primary-vivid transition-colors hidden sm:block" href="#part-3">データ連携</a>
+    <a class="hover:text-primary-vivid transition-colors hidden sm:block" href="#part-4">Chart.js</a>
+    <a class="hover:text-primary-vivid transition-colors" href="#links">リンク</a>
+  </nav>
+</div>
+</header>
+
+<!-- Hero Section -->
+<section class="hero-gradient text-white py-16 sm:py-20">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+  <p class="text-white/70 text-sm font-medium mb-3">けいたろうさん添削会 &#8211; 2026.2.24</p>
+  <h1 class="text-3xl sm:text-4xl font-bold mb-4 leading-tight">GAS WebAppで<br class="sm:hidden">アンケート集計<br>ダッシュボードを作った話</h1>
+  <p class="text-white/80 text-base mb-10">Googleフォームの回答を、GASだけでグラフ付きダッシュボードに変える方法</p>
+
+  <!-- フロー図 -->
+  <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2 max-w-3xl mx-auto">
+    <div class="bg-white/15 backdrop-blur rounded-xl p-4 flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+      <span class="material-icons-outlined text-2xl flex-shrink-0">assignment</span>
+      <div class="text-left">
+        <p class="font-bold text-sm">Google Form</p>
+        <p class="text-white/60 text-xs">アンケート回収</p>
+      </div>
+    </div>
+    <span class="material-icons-outlined text-xl text-white/50 rotate-90 sm:rotate-0">arrow_forward</span>
+    <div class="bg-white/15 backdrop-blur rounded-xl p-4 flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+      <span class="material-icons-outlined text-2xl flex-shrink-0">table_chart</span>
+      <div class="text-left">
+        <p class="font-bold text-sm">スプレッドシート</p>
+        <p class="text-white/60 text-xs">データ蓄積</p>
+      </div>
+    </div>
+    <span class="material-icons-outlined text-xl text-white/50 rotate-90 sm:rotate-0">arrow_forward</span>
+    <div class="bg-white/15 backdrop-blur rounded-xl p-4 flex items-center gap-3 w-full sm:w-auto sm:flex-1 ring-2 ring-accent">
+      <span class="material-icons-outlined text-2xl flex-shrink-0">bar_chart</span>
+      <div class="text-left">
+        <p class="font-bold text-sm">GAS WebApp</p>
+        <p class="text-white/60 text-xs">ダッシュボード表示</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 概要: そもそも何をしているの？ -->
+<section id="overview" class="py-14 sm:py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <h2 class="text-center text-2xl font-bold mb-4">そもそも何をしているの？</h2>
+  <p class="text-center text-slate-500 text-sm mb-10 max-w-2xl mx-auto">「GASでWebアプリ」と聞くと難しそうですが、やっていることはシンプルです。</p>
+
+  <div class="max-w-3xl mx-auto space-y-5 mb-10">
+    <div class="plain-box">
+      セミナーやイベントのあと、<strong>Googleフォーム</strong>でアンケートをとりますよね。その回答データはスプレッドシートに溜まっていきます。でも毎回「関数で集計して…グラフ作って…」と手作業でやるのは大変。
+    </div>
+    <div class="plain-box">
+      そこで <strong>GAS（Google Apps Script）</strong> の出番です。GASはGoogleのサービスに最初から組み込まれたプログラミング環境。特別なサーバーやサービスを契約しなくても、<strong>スプレッドシートのデータを読み取って、グラフ付きのWebページを自動で表示</strong>できます。
+    </div>
+    <div class="plain-box">
+      つまり今日やっていることを一言でまとめると、<strong>「フォームの回答を、URLにアクセスするだけで見られるグラフ付きダッシュボードに変えた」</strong>ということです。料金は0円。Googleアカウントだけで動きます。
+    </div>
+  </div>
+
+  <!-- Before / After -->
+  <h3 class="text-center text-lg font-bold mb-6">Before / After</h3>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+    <!-- Before -->
+    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+      <p class="text-sm font-bold text-slate-500 mb-4 flex items-center gap-2">
+        <span class="material-icons-outlined text-slate-400">close</span> Before
+      </p>
+      <ul class="space-y-3 text-sm text-slate-600">
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-slate-400 text-lg flex-shrink-0">close</span>
+          毎回スプレッドシートでポチポチ集計
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-slate-400 text-lg flex-shrink-0">close</span>
+          回ごとの比較ができない
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-slate-400 text-lg flex-shrink-0">close</span>
+          Q&Aがバラバラ管理
+        </li>
+      </ul>
+    </div>
+    <!-- After -->
+    <div class="bg-primary/10 border border-primary/30 rounded-2xl p-6">
+      <p class="text-sm font-bold text-primary-vivid mb-4 flex items-center gap-2">
+        <span class="material-icons-outlined text-primary-vivid">check_circle</span> After
+      </p>
+      <ul class="space-y-3 text-sm text-slate-700">
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-primary-vivid text-lg flex-shrink-0">check_circle</span>
+          URLにアクセスするだけで集計完了
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-primary-vivid text-lg flex-shrink-0">check_circle</span>
+          グラフ表示＆回別推移も自動で見える
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="material-icons-outlined text-primary-vivid text-lg flex-shrink-0">check_circle</span>
+          Q&Aもダッシュボードに一体化
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Part 1: 全体アーキテクチャ -->
+<section id="part-1" class="py-14 sm:py-16 bg-lavender/5">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <span class="inline-block bg-secondary-vivid/10 text-secondary-vivid px-4 py-1 rounded-full text-sm font-bold mb-4">Part 1</span>
+  <h2 class="text-2xl font-bold mb-3">全体の構成図</h2>
+  <p class="text-slate-500 mb-6">使っているのは、みんなが知っている3つのGoogleサービスだけ。</p>
+
+  <div class="plain-box max-w-3xl mx-auto mb-8">
+    左から右に「フォーム → スプレッドシート → GAS WebApp」とデータが流れます。フォームに誰かが回答を送ると、スプレッドシートに自動で1行追加され、WebApp（ダッシュボード）を開くとそのデータをグラフにして表示してくれます。
+  </div>
+
+  <!-- アーキテクチャ図 -->
+  <div class="flex flex-col sm:flex-row items-stretch gap-4 max-w-4xl mx-auto mb-10">
+    <div class="arch-card">
+      <span class="material-icons-outlined text-primary-vivid text-4xl mb-3">assignment</span>
+      <h4 class="font-bold text-sm mb-1">Google Form</h4>
+      <p class="text-xs text-slate-500">参加者がアンケートに回答</p>
+    </div>
+    <div class="arch-arrow hidden sm:flex">
+      <span class="material-icons-outlined">arrow_forward</span>
+    </div>
+    <div class="arch-arrow flex sm:hidden justify-center">
+      <span class="material-icons-outlined rotate-90">arrow_forward</span>
+    </div>
+    <div class="arch-card">
+      <span class="material-icons-outlined text-primary-vivid text-4xl mb-3">table_chart</span>
+      <h4 class="font-bold text-sm mb-1">スプレッドシート</h4>
+      <p class="text-xs text-slate-500">回答データが自動で蓄積</p>
+      <p class="text-xs text-primary-vivid font-bold mt-2">回答が来たら自動通知</p>
+    </div>
+    <div class="arch-arrow hidden sm:flex">
+      <span class="material-icons-outlined">arrow_forward</span>
+    </div>
+    <div class="arch-arrow flex sm:hidden justify-center">
+      <span class="material-icons-outlined rotate-90">arrow_forward</span>
+    </div>
+    <div class="arch-card ring-2 ring-primary-vivid">
+      <span class="material-icons-outlined text-primary-vivid text-4xl mb-3">bar_chart</span>
+      <h4 class="font-bold text-sm mb-1">GAS WebApp</h4>
+      <p class="text-xs text-slate-500">ダッシュボードとして表示</p>
+      <p class="text-xs text-primary-vivid font-bold mt-2">URLを開くだけで集計完了</p>
+    </div>
+  </div>
+
+  <!-- ポイント -->
+  <div class="check-card max-w-3xl mx-auto">
+    <p class="font-bold text-sm flex items-center gap-2 mb-2">
+      <span class="material-icons-outlined text-primary-vivid">lightbulb</span>
+      ここがポイント
+    </p>
+    <p class="text-sm text-slate-600">外部のサーバーやAWSのようなクラウドサービスは一切不要です。Googleアカウントさえあれば、この3つの組み合わせだけで本格的なダッシュボードが作れます。追加費用もゼロです。</p>
+  </div>
+</div>
+</section>
+
+<!-- Part 2: doGet() -->
+<section id="part-2" class="py-14 sm:py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <span class="inline-block bg-secondary-vivid/10 text-secondary-vivid px-4 py-1 rounded-full text-sm font-bold mb-4">Part 2</span>
+  <h2 class="text-2xl font-bold mb-3">doGet() &#8211; GASをWebアプリにする魔法の関数</h2>
+  <p class="text-slate-500 mb-6">「スクリプトにURLを与えて、ブラウザから見られるようにする」仕組みです。</p>
+
+  <div class="plain-box max-w-3xl mx-auto mb-8">
+    普通、Webサイトを作ろうと思ったらサーバーを借りて…ドメインを設定して…と大変ですよね。GASでは <strong>doGet()</strong> という名前の関数を1つ書くだけで、Googleが自動的にURLを発行してくれます。そのURLにアクセスすると、自分が書いたHTMLページが表示される。これがGAS WebAppの仕組みです。
+  </div>
+
+  <div class="space-y-6 max-w-3xl mx-auto">
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">1</div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-2">doGet() 関数を書く</h4>
+          <p class="text-sm text-slate-500 mb-4">「このURLにアクセスされたら、このHTMLファイルを表示してね」という指示書です。たったこれだけ。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-doget')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-doget">function doGet(e) {
+  const page = e.parameter.page || 'index';
+  return HtmlService
+    .createHtmlOutputFromFile(page)
+    .setTitle('ダッシュボード');
+}</pre>
+          </div>
+          <p class="text-xs text-slate-400 mt-3">e.parameter.page は URLの末尾に ?page=dashboard のように付けると表示するページを切り替えられます。何も付けなければ index.html を表示します。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">2</div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-2">デプロイ（公開）する</h4>
+          <p class="text-sm text-slate-500 mb-3">コードを書いたら「公開」ボタンを押すイメージです。URLが発行されて、誰でもアクセスできるようになります。</p>
+          <div class="bg-primary/10 rounded-lg p-4">
+            <ol class="text-sm text-slate-700 space-y-2">
+              <li class="flex items-start gap-2">
+                <span class="font-bold text-primary-vivid flex-shrink-0">1.</span>
+                Apps Script エディタで「デプロイ」→「新しいデプロイ」
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="font-bold text-primary-vivid flex-shrink-0">2.</span>
+                種類を「ウェブアプリ」に
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="font-bold text-primary-vivid flex-shrink-0">3.</span>
+                アクセスできるユーザーを「全員」に
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="font-bold text-primary-vivid flex-shrink-0">4.</span>
+                「デプロイ」を押す → URLが出てくる！
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Part 3: google.script.run -->
+<section id="part-3" class="py-14 sm:py-16 bg-lavender/5">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <span class="inline-block bg-secondary-vivid/10 text-secondary-vivid px-4 py-1 rounded-full text-sm font-bold mb-4">Part 3</span>
+  <h2 class="text-2xl font-bold mb-3">google.script.run &#8211; 画面とデータをつなぐ</h2>
+  <p class="text-slate-500 mb-6">Webページ（HTML）からスプレッドシートのデータを取りに行く仕組みです。</p>
+
+  <div class="plain-box max-w-3xl mx-auto mb-8">
+    ダッシュボードの画面（HTML）は、見た目だけのファイルです。データは持っていません。「スプレッドシートから最新の回答データを取ってきて！」とお願いする仕組みが <strong>google.script.run</strong> です。<br><br>
+    やり取りはこんなイメージ：<br>
+    <strong>HTML画面</strong>「データちょうだい！」→ <strong>GAS</strong>「はい、集計結果です」→ <strong>HTML画面</strong>「ありがとう、グラフ描くね」
+  </div>
+
+  <div class="space-y-6 max-w-3xl mx-auto">
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">
+          <span class="material-icons-outlined text-lg">dns</span>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-1">GAS側 &#8211; データを準備する係</h4>
+          <p class="text-sm text-slate-500 mb-4">スプレッドシートのデータを読み取って、「回答数」「満足度の平均」などを計算して返します。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-server')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-server">// SurveyAggregate.gs
+function getDashboardData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('回答');
+  const data = sheet.getDataRange().getValues();
+
+  // 1行目はヘッダーなので除外
+  const rows = data.slice(1);
+
+  // 集計
+  const totalCount = rows.length;
+  const avgSatisfaction = rows.reduce(
+    (sum, r) => sum + r[5], 0
+  ) / totalCount;
+
+  return {
+    totalCount: totalCount,
+    avgSatisfaction: avgSatisfaction.toFixed(1),
+    rows: rows
+  };
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">
+          <span class="material-icons-outlined text-lg">computer</span>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-1">HTML側 &#8211; データを受け取って画面に表示する係</h4>
+          <p class="text-sm text-slate-500 mb-4">「データ取ってきて」→「受け取ったら画面に数字を入れてグラフを描く」という流れです。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-client')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-client">// dashboard.html の中
+google.script.run
+  .withSuccessHandler(function(result) {
+    // ↑ データが届いたらここが動く
+    document.getElementById('total').textContent
+      = result.totalCount;       // → 「21件」
+    document.getElementById('avg').textContent
+      = result.avgSatisfaction;  // → 「4.5」
+
+    // グラフを描く
+    renderCharts(result);
+  })
+  .withFailureHandler(function(err) {
+    console.error('データ取得失敗:', err);
+  })
+  .getDashboardData();
+  // ↑ GAS側の関数名をそのまま書くだけ</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="check-card max-w-3xl mx-auto">
+      <p class="font-bold text-sm flex items-center gap-2 mb-2">
+        <span class="material-icons-outlined text-primary-vivid">lightbulb</span>
+        ここがポイント
+      </p>
+      <p class="text-sm text-slate-600">普通のWebアプリだと、サーバーへのリクエスト方法（API）を自分で設計する必要がありますが、GASでは関数名をそのまま書くだけ。HTML側から <code class="bg-white/80 px-1 rounded text-xs">.getDashboardData()</code> と書けば、GAS側の <code class="bg-white/80 px-1 rounded text-xs">getDashboardData()</code> が自動で呼ばれます。</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Part 4: Chart.js -->
+<section id="part-4" class="py-14 sm:py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <span class="inline-block bg-secondary-vivid/10 text-secondary-vivid px-4 py-1 rounded-full text-sm font-bold mb-4">Part 4</span>
+  <h2 class="text-2xl font-bold mb-3">Chart.js &#8211; データをグラフにする</h2>
+  <p class="text-slate-500 mb-6">無料のグラフ描画ライブラリ。1行読み込むだけで使えます。</p>
+
+  <div class="plain-box max-w-3xl mx-auto mb-8">
+    Part 3でGASからデータを受け取りました。でも数字の羅列だけでは見にくいですよね。<strong>Chart.js</strong> は、データを渡すだけで棒グラフや円グラフなどをきれいに描いてくれるツールです。インストール不要、HTMLに1行追加するだけで使えます。
+  </div>
+
+  <div class="space-y-6 max-w-3xl mx-auto">
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">1</div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-2">HTMLに1行追加するだけ</h4>
+          <p class="text-sm text-slate-500 mb-4">この1行でChart.jsの全機能が使えるようになります。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-cdn')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-cdn">&lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">2</div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-2">棒グラフを描く</h4>
+          <p class="text-sm text-slate-500 mb-4">「どのデータを」「どんなグラフで」表示するかを指定するだけ。回ごとの満足度を棒グラフにする例です。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-bar')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-bar">new Chart(ctx, {
+  type: 'bar',              // ← グラフの種類
+  data: {
+    labels: ['第1回','第2回','第3回'],
+    datasets: [{
+      label: '満足度（5段階）',
+      data: [4.2, 4.5, 4.8], // ← 数値データ
+      backgroundColor: '#01A8D3',
+      borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: { y: { min: 1, max: 5 } }
+  }
+});</pre>
+          </div>
+          <p class="text-xs text-slate-400 mt-3">type を 'line' にすれば折れ線グラフ、'doughnut' にすれば円グラフに。値を変えるだけで切り替えられます。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="step-number">3</div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-2">ドーナツチャートを描く</h4>
+          <p class="text-sm text-slate-500 mb-4">理解度の内訳を円グラフ（ドーナツ型）で表示する例です。</p>
+          <div class="prompt-box">
+            <button class="copy-btn absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 z-10" onclick="copyPrompt(this, 'code-donut')">
+              <span class="material-icons-outlined text-base">content_copy</span> コピー
+            </button>
+            <pre id="code-donut">new Chart(ctx, {
+  type: 'doughnut',         // ← ドーナツ型
+  data: {
+    labels: ['よく理解','だいたい','半分','あまり'],
+    datasets: [{
+      data: [42, 35, 18, 5], // ← 人数や割合
+      backgroundColor: [
+        '#01A8D3', '#4DC9E6',
+        '#EEB730', '#F5DFA0'
+      ]
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '60%'            // ← 穴の大きさ
+  }
+});</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="check-card max-w-3xl mx-auto">
+      <p class="font-bold text-sm flex items-center gap-2 mb-2">
+        <span class="material-icons-outlined text-primary-vivid">lightbulb</span>
+        グラフの種類いろいろ
+      </p>
+      <p class="text-sm text-slate-600">Chart.js では type の値を変えるだけで、bar（棒）、line（折れ線）、doughnut（ドーナツ）、pie（円）、radar（レーダー）など様々なグラフが描けます。デザインの細かい調整も options で自由自在です。</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 全体の流れまとめ -->
+<section class="py-14 sm:py-16 bg-lavender/5">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <h2 class="text-2xl font-bold mb-8 text-center">全体の流れをおさらい</h2>
+  <div class="max-w-3xl mx-auto space-y-4">
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start gap-4">
+      <div class="step-number">1</div>
+      <div>
+        <h4 class="font-bold text-sm mb-1">Googleフォームでアンケートを作る</h4>
+        <p class="text-sm text-slate-500">ここは普段やっていることと同じです。</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start gap-4">
+      <div class="step-number">2</div>
+      <div>
+        <h4 class="font-bold text-sm mb-1">回答がスプレッドシートに自動で溜まる</h4>
+        <p class="text-sm text-slate-500">フォームとスプレッドシートはGoogleの標準機能で連携済み。</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start gap-4">
+      <div class="step-number">3</div>
+      <div>
+        <h4 class="font-bold text-sm mb-1">GASがデータを集計してグラフ付きページを返す</h4>
+        <p class="text-sm text-slate-500">doGet() でページを公開、google.script.run でデータ取得、Chart.js でグラフ描画。</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start gap-4">
+      <div class="step-number">4</div>
+      <div>
+        <h4 class="font-bold text-sm mb-1">URLにアクセスするだけで最新のダッシュボードが見られる</h4>
+        <p class="text-sm text-slate-500">毎回の集計作業が不要に。開くたびに最新データで表示されます。</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 参考リンク集 -->
+<section id="links" class="py-14 sm:py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6">
+  <h2 class="text-2xl font-bold mb-8 text-center">参考リンク集</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
+    <a href="https://developers.google.com/apps-script/guides/web" target="_blank" rel="noopener" class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group">
+      <div class="w-12 h-12 bg-primary/10 text-primary-vivid rounded-xl flex items-center justify-center flex-shrink-0">
+        <span class="material-icons-outlined text-2xl">code</span>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm group-hover:text-primary-vivid transition-colors">GAS Web Apps 公式ガイド</h4>
+        <p class="text-xs text-slate-500">developers.google.com</p>
+      </div>
+    </a>
+    <a href="https://developers.google.com/apps-script/guides/html/communication" target="_blank" rel="noopener" class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group">
+      <div class="w-12 h-12 bg-primary/10 text-primary-vivid rounded-xl flex items-center justify-center flex-shrink-0">
+        <span class="material-icons-outlined text-2xl">sync_alt</span>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm group-hover:text-primary-vivid transition-colors">HTML Service: サーバーとの通信</h4>
+        <p class="text-xs text-slate-500">google.script.run の詳細</p>
+      </div>
+    </a>
+    <a href="https://www.chartjs.org/docs/latest/" target="_blank" rel="noopener" class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group">
+      <div class="w-12 h-12 bg-primary/10 text-primary-vivid rounded-xl flex items-center justify-center flex-shrink-0">
+        <span class="material-icons-outlined text-2xl">bar_chart</span>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm group-hover:text-primary-vivid transition-colors">Chart.js 公式ドキュメント</h4>
+        <p class="text-xs text-slate-500">chartjs.org</p>
+      </div>
+    </a>
+    <a href="https://developers.google.com/apps-script/reference/html" target="_blank" rel="noopener" class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group">
+      <div class="w-12 h-12 bg-primary/10 text-primary-vivid rounded-xl flex items-center justify-center flex-shrink-0">
+        <span class="material-icons-outlined text-2xl">description</span>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm group-hover:text-primary-vivid transition-colors">HTML Service リファレンス</h4>
+        <p class="text-xs text-slate-500">HtmlOutput, HtmlTemplate の全メソッド</p>
+      </div>
+    </a>
+  </div>
+</div>
+</section>
+
+<!-- Summary -->
+<section class="hero-gradient text-white py-14 sm:py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+  <h2 class="text-2xl font-bold mb-8">今日のまとめ</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
+    <div class="bg-white/15 backdrop-blur rounded-xl p-5 flex items-center gap-3">
+      <span class="material-icons-outlined text-3xl flex-shrink-0">web</span>
+      <p class="font-bold text-sm text-left">doGet() でGASがWebサイトになる</p>
+    </div>
+    <div class="bg-white/15 backdrop-blur rounded-xl p-5 flex items-center gap-3">
+      <span class="material-icons-outlined text-3xl flex-shrink-0">sync_alt</span>
+      <p class="font-bold text-sm text-left">google.script.run で画面とデータがつながる</p>
+    </div>
+    <div class="bg-white/15 backdrop-blur rounded-xl p-5 flex items-center gap-3">
+      <span class="material-icons-outlined text-3xl flex-shrink-0">bar_chart</span>
+      <p class="font-bold text-sm text-left">Chart.js でデータがグラフになる</p>
+    </div>
+    <div class="bg-white/15 backdrop-blur rounded-xl p-5 flex items-center gap-3">
+      <span class="material-icons-outlined text-3xl flex-shrink-0">bolt</span>
+      <p class="font-bold text-sm text-left">全部無料、Googleアカウントだけ</p>
+    </div>
+  </div>
+  <p class="text-white/70 text-sm">GASは関数とトリガーだけじゃない。Webアプリも作れる。</p>
+</div>
+</section>
+
+<!-- Footer -->
+<footer class="bg-white border-t border-slate-200 py-6">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-slate-400">
+  <div class="flex items-center space-x-2">
+    <span class="material-icons-outlined text-primary-vivid text-xl">dashboard</span>
+    <span class="font-medium text-slate-600">GAS WebApp ダッシュボードの作り方</span>
+  </div>
+  <span>配布資料 | 2026年2月</span>
+</div>
+</footer>
+
+<script>
+function copyPrompt(button, promptId) {
+  const promptElement = document.getElementById(promptId);
+  const text = promptElement.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    button.classList.add('copied');
+    button.innerHTML = '<span class="material-icons-outlined text-base">check</span> コピー完了';
+    setTimeout(() => {
+      button.classList.remove('copied');
+      button.innerHTML = '<span class="material-icons-outlined text-base">content_copy</span> コピー';
+    }, 2000);
+  }).catch(err => {
+    console.error('コピーに失敗:', err);
+    alert('コピーに失敗しました');
+  });
+}
+</script>
+</body>
+</html>
